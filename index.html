@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2022 解剖学過去問演習</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- canvas-confetti (for celebration animation) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+    <!-- Custom Styles and Fonts -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Serif JP', serif;
+            background-color: #1a1a2e;
+            background-image: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e3e3e3;
+            overflow: hidden; /* Prevent scrollbars during animations */
+        }
+
+        /* Custom Styles for a premium feel */
+        .card {
+            background: rgba(22, 33, 62, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .btn-gold {
+            background-color: #D4AF37;
+            color: #16213e;
+            font-weight: bold;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+            border: 1px solid #D4AF37;
+        }
+        .btn-gold:hover {
+            background-color: #c09a2d;
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: #D4AF37;
+            border: 2px solid #D4AF37;
+            font-weight: bold;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background-color: rgba(212, 175, 55, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #D4AF37;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        /* Animation Classes */
+        .screen {
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+        .screen.hidden {
+            opacity: 0;
+            transform: scale(0.98);
+            pointer-events: none;
+            position: absolute;
+        }
+        .fade-in {
+            animation: fadeIn 1s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .answer-reveal {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.7s ease-in-out, opacity 0.5s ease-in-out;
+            opacity: 0;
+        }
+        .answer-reveal.show {
+            max-height: 1000px; /* Sufficiently large value */
+            opacity: 1;
+        }
+
+        #result-screen h2 {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #FFD700;
+            text-shadow: 0 0 15px #FFD700;
+            animation: fadeIn 1s ease-out, pulse 2s infinite 1s;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="w-full h-screen flex items-center justify-center p-4">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen text-center w-full max-w-md">
+        <div class="card p-8 md:p-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">2022</h1>
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-300 mb-10">解剖学過去問演習</h2>
+            <div class="space-y-6">
+                <button id="start-sequential-btn" class="btn-gold w-full">順番に問題を解く</button>
+                <button id="start-random-btn" class="btn-secondary w-full">ランダムに問題を解く</button>
+            </div>
+        </div>
+        <footer class="absolute bottom-4 text-gray-500 text-sm">
+            &copy; 2025 Medteria All rights reserved.
+        </footer>
+    </div>
+
+    <!-- Quiz Screen -->
+    <div id="quiz-screen" class="screen hidden w-full h-full flex flex-col">
+        <!-- Header -->
+        <header class="flex-shrink-0 flex justify-between items-center p-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-20 h-20 relative">
+                    <canvas id="progress-chart"></canvas>
+                    <div id="progress-percentage" class="absolute inset-0 flex items-center justify-center text-lg font-bold"></div>
+                </div>
+                <div>
+                    <h3 id="progress-text" class="text-lg font-bold"></h3>
+                    <p id="question-category" class="text-sm text-gray-400"></p>
+                </div>
+            </div>
+            <button id="back-to-title-btn" class="text-gray-400 hover:text-white transition-colors">タイトルに戻る</button>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow flex items-center justify-center">
+            <div id="question-container" class="card w-full max-w-4xl p-6 md:p-8">
+                <div id="question-text" class="text-lg md:text-xl leading-relaxed mb-6 min-h-[100px]"></div>
+                
+                <button id="toggle-answer-btn" class="btn-secondary w-full mb-6">解答・解説を確認する</button>
+
+                <div id="answer-container" class="answer-reveal space-y-4">
+                    <div>
+                        <h4 class="font-bold text-lg text-amber-300 border-b border-amber-300/30 pb-1 mb-2">解答</h4>
+                        <p id="answer-text" class="text-base md:text-lg"></p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-lg text-sky-300 border-b border-sky-300/30 pb-1 mb-2">解説</h4>
+                        <p id="explanation-text" class="text-base md:text-lg leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer / Navigation -->
+        <footer class="flex-shrink-0 flex items-center justify-between p-4 space-x-4">
+            <button id="prev-btn" class="btn-secondary opacity-50" disabled>&lt; 前の問題</button>
+            <div class="flex flex-col items-center">
+                <label for="understood-toggle" class="mb-1 text-sm font-bold text-gray-300">理解した</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="understood-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <button id="next-btn" class="btn-gold">次の問題 &gt;</button>
+        </footer>
+    </div>
+    
+    <!-- Result Screen -->
+    <div id="result-screen" class="screen hidden text-center w-full max-w-lg">
+        <div class="card p-8 md:p-12 space-y-6">
+            <div class="fade-in">
+                <h2 class="mb-4">おめでとうございます！</h2>
+                <p class="text-xl">全ての問題を解き終わりました。</p>
+            </div>
+            <div class="w-48 h-48 mx-auto fade-in" style="animation-delay: 0.5s;">
+                <canvas id="result-chart"></canvas>
+            </div>
+            <div class="fade-in" style="animation-delay: 1s;">
+                 <p id="result-summary" class="text-lg mb-6"></p>
+                <button id="restart-btn" class="btn-gold w-full">もう一度挑戦する</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // --- DATA ---
+        const quizData = [
+            // 設問1: 脈管系
+            { id: 1, category: "脈管系: 用語", question: "英語の解剖学名 'Anastomosis' の日本語名を答えなさい。", answer: "吻合", explanation: "血管同士が連絡し合う構造です。主幹動脈の閉塞時に血流を維持する側副血行路として重要です。" },
+            { id: 2, category: "脈管系: 用語", question: "英語の解剖学名 'Cutaneous vein' の日本語名を答えなさい。", answer: "皮静脈", explanation: "皮下を走行する静脈で、採血や静脈路確保に利用されます。" },
+            { id: 3, category: "脈管系: 用語", question: "英語の解剖学名 'Superficial temporal artery' の日本語名を答えなさい。", answer: "浅側頭動脈", explanation: "外頸動脈の終枝の一つで、こめかみで脈拍を触知できます。" },
+            { id: 4, category: "脈管系: 用語", question: "英語の解剖学名 'Mediastinum' の日本語名を答えなさい。", answer: "縦隔", explanation: "左右の肺に挟まれた胸腔中央の領域で、心臓、大血管、気管、食道などを含みます。" },
+            { id: 5, category: "脈管系: 用語", question: "英語の解剖学名 'Pericardium' の日本語名を答えなさい。", answer: "心膜", explanation: "心臓を包む二重の膜です。" },
+            { id: 6, category: "脈管系: 用語", question: "日本語の解剖学名 '胸大動脈' の英語名を答えなさい。", answer: "Thoracic aorta", explanation: "胸部を下行する大動脈の部分です。" },
+            { id: 7, category: "脈管系: 用語", question: "日本語の解剖学名 '総頸動脈' の英語名を答えなさい。", answer: "Common carotid artery", explanation: "腕頭動脈（右）または大動脈弓（左）から分岐し、内頸動脈と外頸動脈に分かれます。" },
+            { id: 8, category: "脈管系: 用語", question: "日本語の解剖学名 '洞房結節' の英語名を答えなさい。", answer: "Sinoatrial node (SA node)", explanation: "心臓のペースメーカーで、右心房に位置します。" },
+            { id: 9, category: "脈管系: 用語", question: "日本語の解剖学名 '三尖弁' の英語名を答えなさい。", answer: "Tricuspid valve", explanation: "右心房と右心室の間にある弁です。" },
+            { id: 10, category: "脈管系: 用語", question: "日本語の解剖学名 '脾臓' の英語名を答えなさい。", answer: "Spleen", explanation: "左上腹部に位置する最大のリンパ器官です。" },
+            { id: 11, category: "脈管系: 穴埋め", question: "外頸動脈から最初に分岐する枝と、二つ目の分岐の動脈名を答えなさい。", answer: "最初の分岐: <strong>上甲状腺動脈</strong>, 二つ目の分岐: <strong>舌動脈</strong>", explanation: "外頸動脈の分岐順序（上甲状腺動脈→舌動脈→顔面動脈）は解剖学的に重要です。" },
+            { id: 12, category: "脈管系: 穴埋め", question: "椎骨動脈が通過する頸椎の孔と、頭蓋内に入る孔を答えなさい。", answer: "頸椎の<strong>横突孔</strong>を上行し、<strong>大後頭孔</strong>から頭蓋内に入る。", explanation: "椎骨動脈はC6からC1の横突孔を通り、大後頭孔から頭蓋内に入って脳底動脈を形成します。" },
+            { id: 13, category: "脈管系: 穴埋め", question: "冠動脈バイパス手術でよく使用され、鎖骨下動脈から分岐する動脈と、それが横隔膜を貫いた後の動脈名を答えなさい。", answer: "<strong>内胸動脈</strong>であり、横隔膜を貫くと<strong>上腹壁動脈</strong>となる。", explanation: "内胸動脈は冠動脈バイパス手術(CABG)のグラフトとして長期開存率が高く、第一選択されます。" },
+            { id: 14, category: "脈管系: 穴埋め", question: "心拍数、心収縮力は、迷走神経の心臓枝からの刺激を介してどのように変化しますか。", answer: "心拍数は<strong>減少し</strong>、心収縮力は<strong>減弱する</strong>。", explanation: "迷走神経は副交感神経であり、心臓に対して抑制的に働きます（陰性変時作用、陰性変力作用）。" },
+            { id: 15, category: "脈管系: 穴埋め", question: "頸動脈洞と頸動脈小体はそれぞれ何を感知しますか。", answer: "頸動脈洞は<strong>血圧の上昇</strong>を、頸動脈小体は<strong>酸素分圧の低下</strong>を感知する。", explanation: "頸動脈洞は圧受容器、頸動脈小体は化学受容器です。これらは血圧や血中ガス濃度を調節する反射に関与します。" },
+            { id: 16, category: "脈管系: 穴埋め", question: "三尖弁や僧帽弁などの房室弁を心室壁につなぎとめ、弁の翻転を防ぐ筋を答えなさい。", answer: "<strong>乳頭筋</strong>", explanation: "心室収縮時に乳頭筋も収縮し、腱索を介して房室弁が心房側へ翻転するのを防ぎます。" },
+            { id: 17, category: "脈管系: 穴埋め", question: "心房と心室を電気的に絶縁する線維輪を貫き、興奮を心室へ伝える刺激伝導系の部分を答えなさい。", answer: "<strong>ヒス束（房室束）</strong>", explanation: "線維輪で隔てられた心房と心室の唯一の電気的連絡路がヒス束であり、協調した心収縮に不可欠です。" },
+            { id: 18, category: "脈管系: 穴埋め", question: "出生後に閉鎖する胎児期の臍静脈と動脈管は、それぞれ何という索状の遺残物になりますか。", answer: "臍静脈は<strong>肝円索</strong>に、動脈管は<strong>動脈管索</strong>になる。", explanation: "胎児循環の構造物は出生後に機能的役割を終え、結合組織性の索として残ります。" },
+            { id: 19, category: "脈管系: 穴埋め", question: "脾臓が破壊・除去する血球と、分化を促す免疫細胞を答えなさい。", answer: "古い<strong>赤血球</strong>を破壊し、<strong>リンパ球</strong>の分化を促す。", explanation: "脾臓は赤脾髄で血球処理を、白脾髄で免疫応答を担います。" },
+            { id: 20, category: "脈管系: 穴埋め", question: "腹部・骨盤・下肢のリンパが集まるリンパ本幹と、それが静脈に注ぐ部位を答えなさい。", answer: "<strong>胸管</strong>に集まり、<strong>左静脈角</strong>で静脈に注ぐ。", explanation: "胸管は人体最大のリンパ本幹で、下半身および左上半身のリンパを集めます。" },
+
+            // 設問2: 消化器系
+            { id: 21, category: "消化器系: 穴埋め", question: "口腔に集まる扁桃組織群が形成する免疫装置の輪を何と呼びますか。", answer: "<strong>ワルダイエル咽頭輪</strong>", explanation: "口蓋扁桃、舌扁桃、咽頭扁桃、耳管扁桃からなるリンパ組織の輪で、上気道における免疫の最前線です。" },
+            { id: 22, category: "消化器系: 穴埋め", question: "舌の前3分の2の味覚を支配する神経と、一般知覚（味覚を除く）を支配する神経を答えなさい。", answer: "味覚は<strong>鼓索神経</strong>（顔面神経の枝）、一般知覚は<strong>舌神経</strong>（三叉神経の枝）が支配する。", explanation: "舌の神経支配は部位と機能で異なり、臨床的に重要です。" },
+            { id: 23, category: "消化器系: 穴埋め", question: "大腸に特有な3つの肉眼的特徴を挙げなさい。", answer: "<strong>結腸ヒモ</strong>、<strong>結腸膨起</strong>、<strong>腹膜垂</strong>", explanation: "これら3つの特徴（Taeniae coli, Haustra coli, Appendices epiploicae）は、手術時や画像診断で小腸と大腸を鑑別する重要な指標となります。" },
+            { id: 24, category: "消化器系: 穴埋め", question: "肝臓の機能的右葉と左葉を分ける、胆嚢と下大静脈を結ぶ線を何と呼びますか。", answer: "<strong>カントリー線 (Cantlie's line)</strong>", explanation: "外科的肝切除の際に基準となる線で、中肝静脈の走行にほぼ一致します。" },
+            { id: 25, category: "消化器系: 穴埋め", question: "十二指腸下行部にあって、総胆管と主膵管が開口する部位の名称を答えなさい。", answer: "<strong>大十二指腸乳頭（ファーター乳頭）</strong>", explanation: "胆汁と膵液が消化管に放出される重要な合流点で、内視鏡的逆行性胆道膵管造影(ERCP)でアプローチする部位です。" },
+
+            // 設問3: 呼吸器系
+            { id: 26, category: "呼吸器系: 穴埋め", question: "呼吸上皮が持つ、空気に対する3つの主要な作用を挙げなさい。", answer: "繊毛運動による<strong>浄化</strong>、粘液による<strong>加湿</strong>、静脈叢による<strong>加温</strong>", explanation: "これらの機能により、肺に入る空気は清浄で、適度な温度と湿度に調整されます。" },
+            { id: 27, category: "呼吸器系: 穴埋め", question: "声門裂を開く唯一の内喉頭筋は何ですか。", answer: "<strong>後輪状披裂筋</strong>", explanation: "この筋が両側性に麻痺すると声門が閉じ、窒息の危険があるため臨床的に極めて重要です。唯一の開大筋として知られます。" },
+            { id: 28, category: "呼吸器系: 穴埋め", question: "左の反回神経が、迷走神経から分岐した後に下を回って反回する血管構造を答えなさい。", answer: "<strong>大動脈弓</strong>", explanation: "右反回神経は右鎖骨下動脈の下を反回します。この走行の違いから、麻痺の原因となる疾患が左右で異なります。" },
+            { id: 29, category: "呼吸器系: 穴埋め", question: "肺への血液供給には、ガス交換を担う血管と、肺組織自体を養う血管の2系統があります。それぞれの名称を答えなさい。", answer: "ガス交換を担うのは<strong>機能血管（肺動脈・肺静脈）</strong>、組織を養うのは<strong>栄養血管（気管支動脈・気管支静脈）</strong>です。", explanation: "多くの臓器は栄養血管のみですが、肺や肝臓は機能血管と栄養血管の二重支配を受けています。" },
+            { id: 30, category: "呼吸器系: 穴埋め", question: "平静呼吸で主に働く筋と、努力吸気（深呼吸）時に動員される呼吸補助筋の例を1つ挙げなさい。", answer: "平静呼吸: <strong>横隔膜</strong>。努力吸気時の補助筋: <strong>胸鎖乳突筋</strong>または<strong>斜角筋群</strong>。", explanation: "平静呼吸は主に横隔膜の上下運動で行われますが、より多くの空気が必要な場合は、胸郭を引き上げる補助筋が動員されます。" },
+            
+            // 設問5: 骨学・感覚器・末梢神経系
+            { id: 31, category: "骨学", question: "骨・骨格の機能を5点挙げなさい。", answer: "1. 身体の支持<br>2. 臓器の保護<br>3. 運動の支点<br>4. 造血<br>5. ミネラルの貯蔵", explanation: "これらは骨格系の基本的な役割であり、生命維持に不可欠です。" },
+            { id: 32, category: "骨学", question: "骨基質の無機塩類の主成分である物質は何ですか。", answer: "<strong>リン酸カルシウム</strong>（ヒドロキシアパタイト）", explanation: "骨の硬さと強度を担う主成分で、カルシウムの貯蔵庫としての役割も果たします。" },
+            { id: 33, category: "骨学", question: "骨組織に存在する主要な細胞を3種類挙げなさい。", answer: "<strong>骨芽細胞</strong>, <strong>骨細胞</strong>, <strong>破骨細胞</strong>", explanation: "骨芽細胞は骨を作り、骨細胞は骨基質内に埋もれて骨を維持し、破骨細胞は骨を溶かします。これらの細胞のバランスにより骨のリモデリングが行われます。" },
+            { id: 34, category: "骨学", question: "肘関節の屈曲・伸展と、回内・回外は、主にどの単関節の働きで行われますか。", answer: "屈曲・伸展は主に<strong>腕尺関節</strong>、回内・回外は主に<strong>腕橈関節</strong>と<strong>上橈尺関節</strong>の協調運動で行われる。", explanation: "肘関節は3つの関節からなる複関節で、それぞれの関節が異なる運動を分担することで複雑な動きを可能にしています。" },
+            { id: 35, category: "骨学", question: "膝関節の安定性に寄与する主要な関節内靱帯を2つ挙げなさい。", answer: "<strong>前十字靱帯 (ACL)</strong> と <strong>後十字靱帯 (PCL)</strong>", explanation: "これらは大腿骨に対する脛骨の前後方向への不安定性を防ぐ極めて重要な靱帯で、スポーツ外傷で損傷しやすいことで知られています。" },
+            
+            // 設問8, 10, 11, 12, 13: 神経解剖学
+            { id: 36, category: "神経解剖学", question: "軸索内輸送において、細胞体から軸索終末へ物質を運ぶ順行性輸送を担うモータータンパク質と、逆行性輸送を担うモータータンパク質を答えなさい。", answer: "順行性輸送: <strong>キネシン</strong>, 逆行性輸送: <strong>ダイニン</strong>", explanation: "これらのモータータンパク質が微小管というレールの上を移動することで、軸索内の長距離物質輸送が成り立っています。" },
+            { id: 37, category: "神経解剖学", question: "角膜反射の求心路（感覚入力）と遠心路（運動出力）を担う脳神経をそれぞれ答えなさい。", answer: "求心路: <strong>三叉神経</strong>（第1枝の眼神経）, 遠心路: <strong>顔面神経</strong>", explanation: "角膜に触れると三叉神経が感知し、顔面神経を介して眼輪筋が収縮し、目を閉じる反射です。" },
+            { id: 38, category: "神経解剖学", question: "対光反射に関与する脳神経を、求心路と遠心路に分けて答えなさい。", answer: "求心路: <strong>視神経 (II)</strong>, 遠心路: <strong>動眼神経 (III)</strong>", explanation: "光が網膜に入ると視神経が感知し、動眼神経の副交感神経線維を介して瞳孔括約筋が収縮し、瞳孔が小さくなる反射です。" },
+            { id: 39, category: "神経解剖学", question: "英文を和訳しなさい: The hippocampus belongs to the limbic system and plays important roles in the consolidation of information from short-term memory to long-term memory.", answer: "海馬は大脳辺縁系に属し、短期記憶から長期記憶への情報固定において重要な役割を果たす。", explanation: "海馬は記憶、特に新しいエピソード記憶の形成に不可欠な部位です。両側の海馬が損傷すると、新しいことを覚えられなくなる前向性健忘が起こります。" },
+            { id: 40, category: "神経解剖学", question: "脊髄半切症候群（ブラウン・セカール症候群）において、障害部位より下でみられる障害側の麻痺・感覚障害と、対側の感覚障害はそれぞれ何ですか。", answer: "障害側: <strong>運動麻痺</strong>と<strong>深部感覚・振動覚の消失</strong><br>対側: <strong>温痛覚の消失</strong>", explanation: "これは、運動路（皮質脊髄路）と深部感覚路（後索）が延髄で交叉するのに対し、温痛覚路（脊髄視床路）は脊髄レベルで交叉するため、このような解離性の障害が生じます。" },
+            { id: 41, category: "神経解剖学", question: "延髄外側症候群（ワレンベルグ症候群）でみられるホルネル症候群の3徴候を挙げなさい。", answer: "1. <strong>眼瞼下垂</strong><br>2. <strong>縮瞳</strong><br>3. <strong>顔面の発汗低下</strong>", explanation: "延髄外側を下行する交感神経路が障害されることで、これらの症状が出現します。" },
+        ].map(q => ({ ...q, understood: false }));
+
+        // --- DOM Elements ---
+        const startScreen = document.getElementById('start-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const startSequentialBtn = document.getElementById('start-sequential-btn');
+        const startRandomBtn = document.getElementById('start-random-btn');
+        const backToTitleBtn = document.getElementById('back-to-title-btn');
+        const progressChartCanvas = document.getElementById('progress-chart');
+        const progressPercentage = document.getElementById('progress-percentage');
+        const progressText = document.getElementById('progress-text');
+        const questionCategory = document.getElementById('question-category');
+        const questionText = document.getElementById('question-text');
+        const toggleAnswerBtn = document.getElementById('toggle-answer-btn');
+        const answerContainer = document.getElementById('answer-container');
+        const answerText = document.getElementById('answer-text');
+        const explanationText = document.getElementById('explanation-text');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const understoodToggle = document.getElementById('understood-toggle');
+        const restartBtn = document.getElementById('restart-btn');
+        const resultChartCanvas = document.getElementById('result-chart');
+        const resultSummary = document.getElementById('result-summary');
+
+        // --- State ---
+        let currentQuestionIndex = 0;
+        let questions = [];
+        let progressChart;
+        let resultChart;
+
+        // --- Functions ---
+        const shuffleArray = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        };
+
+        const startQuiz = (mode) => {
+            quizData.forEach(q => q.understood = false);
+            if (mode === 'random') {
+                questions = shuffleArray([...quizData]);
+            } else {
+                questions = [...quizData];
+            }
+            currentQuestionIndex = 0;
+            
+            startScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+
+            displayQuestion();
+            updateProgressChart();
+        };
+        
+        const displayQuestion = () => {
+            answerContainer.classList.remove('show');
+            toggleAnswerBtn.textContent = '解答・解説を確認する';
+
+            const question = questions[currentQuestionIndex];
+            questionText.innerHTML = `<span class="font-bold text-amber-300 mr-2">問.</span>${question.question}`;
+            answerText.innerHTML = question.answer;
+            explanationText.innerHTML = question.explanation;
+            questionCategory.textContent = question.category;
+            understoodToggle.checked = question.understood;
+            
+            progressText.textContent = `第 ${currentQuestionIndex + 1} 問 / 全 ${questions.length} 問`;
+
+            prevBtn.disabled = currentQuestionIndex === 0;
+            prevBtn.style.opacity = prevBtn.disabled ? '0.5' : '1';
+
+            if (currentQuestionIndex === questions.length - 1) {
+                nextBtn.textContent = '結果を見る';
+            } else {
+                nextBtn.textContent = '次の問題 >';
+            }
+        };
+
+        const updateProgressChart = () => {
+            const totalQuestions = questions.length;
+            const understoodCount = questions.filter(q => q.understood).length;
+            const completedCount = currentQuestionIndex + 1;
+            const percentage = Math.round((understoodCount / totalQuestions) * 100);
+
+            progressPercentage.textContent = `${percentage}%`;
+
+            const chartData = {
+                labels: ['理解済み', '未完了', '未学習'],
+                datasets: [{
+                    data: [understoodCount, completedCount - understoodCount, totalQuestions - completedCount],
+                    backgroundColor: ['#D4AF37', '#e53e3e', 'rgba(255, 255, 255, 0.2)'],
+                    borderWidth: 0,
+                    borderRadius: 5,
+                }]
+            };
+
+            if (!progressChart) {
+                progressChart = new Chart(progressChartCanvas, {
+                    type: 'doughnut',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        cutout: '75%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        }
+                    }
+                });
+            } else {
+                progressChart.data = chartData;
+                progressChart.update();
+            }
+        };
+        
+        const showResult = () => {
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+            
+            const understoodCount = questions.filter(q => q.understood).length;
+            const totalCount = questions.length;
+            const score = Math.round((understoodCount / totalCount) * 100);
+            
+            resultSummary.textContent = `正解率: ${score}% (${understoodCount} / ${totalCount} 問)`;
+
+            const resultChartData = {
+                labels: ['理解済み', '要復習'],
+                datasets: [{
+                    data: [understoodCount, totalCount - understoodCount],
+                    backgroundColor: ['#D4AF37', '#16213e'],
+                    borderColor: ['#c09a2d', '#0f3460'],
+                    borderWidth: 2,
+                }]
+            };
+
+            if (resultChart) resultChart.destroy();
+            resultChart = new Chart(resultChartCanvas, {
+                type: 'pie',
+                data: resultChartData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e3e3e3', font: { size: 14 } }
+                        }
+                    }
+                }
+            });
+            
+            // Celebration
+            const duration = 5 * 1000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            const interval = setInterval(function() {
+              const timeLeft = animationEnd - Date.now();
+              if (timeLeft <= 0) return clearInterval(interval);
+              
+              const particleCount = 50 * (timeLeft / duration);
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        };
+
+        const goHome = () => {
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            if (progressChart) progressChart.destroy();
+            progressChart = null;
+        };
+
+        // --- Event Listeners ---
+        startSequentialBtn.addEventListener('click', () => startQuiz('sequential'));
+        startRandomBtn.addEventListener('click', () => startQuiz('random'));
+
+        prevBtn.addEventListener('click', () => {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                displayQuestion();
+                updateProgressChart();
+            }
+        });
+        
+        nextBtn.addEventListener('click', () => {
+            if (currentQuestionIndex < questions.length - 1) {
+                currentQuestionIndex++;
+                displayQuestion();
+                updateProgressChart();
+            } else {
+                showResult();
+            }
+        });
+        
+        understoodToggle.addEventListener('change', (e) => {
+            questions[currentQuestionIndex].understood = e.target.checked;
+            updateProgressChart();
+        });
+        
+        toggleAnswerBtn.addEventListener('click', () => {
+            answerContainer.classList.toggle('show');
+            if (answerContainer.classList.contains('show')) {
+                toggleAnswerBtn.textContent = '解答を隠す';
+            } else {
+                toggleAnswerBtn.textContent = '解答・解説を確認する';
+            }
+        });
+        
+        backToTitleBtn.addEventListener('click', goHome);
+        restartBtn.addEventListener('click', goHome);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (quizScreen.classList.contains('hidden')) return;
+
+            if (e.key === 'ArrowRight') {
+                nextBtn.click();
+            } else if (e.key === 'ArrowLeft') {
+                prevBtn.click();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                toggleAnswerBtn.click();
+            }
+        });
+    });
+    </script>
+</body>
+</html>
